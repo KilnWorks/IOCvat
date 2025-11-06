@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { KeyOutlined } from '@ant-design/icons';
 import Form from 'antd/lib/form';
 import Button from 'antd/lib/button';
 import Input from 'antd/lib/input';
@@ -159,8 +160,19 @@ function LoginFormComponent(props: Props): JSX.Element {
                                 </Form.Item>
                             )
                         }
+                        <Button
+                            icon={<span style={{ fontSize: '20px', fontWeight: '700' }}><KeyOutlined /></span>}
+                            className='cvat-credentials-action-button'
+                            type='primary'
+                            block
+                            onClick={() => {
+                                window.location.href = '/social-auth/login/keycloak/?next=/auth/finalize/';
+                            }}
+                        >
+                            Login with Keycloak
+                        </Button>
                         {
-                            !!credential && (
+                            (!!credential && (
                                 <Form.Item>
                                     <Button
                                         className='cvat-credentials-action-button'
@@ -171,7 +183,7 @@ function LoginFormComponent(props: Props): JSX.Element {
                                         Next
                                     </Button>
                                 </Form.Item>
-                            )
+                            ))
                         }
                     </>
                 )}

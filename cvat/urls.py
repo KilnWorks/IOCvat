@@ -21,14 +21,31 @@ Including another URLconf
 from django.apps import apps
 from django.contrib import admin
 from django.urls import include, path
+from cvat.apps.iam import views
+from django.shortcuts import redirect
+from django.http import JsonResponse, HttpRequest, HttpResponse
+from django.contrib.auth.decorators import login_required
+from social_django.views import auth, complete
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("", include("cvat.apps.engine.urls")),
-    path("", include("cvat.apps.redis_handler.urls")),
-    path("django-rq/", include("django_rq.urls")),
-]
+    path('auth/logout/', views.custom_logout, name='custom_logout'),
+    path('social-auth/', include('social_django.urls', namespace='social')),
+    path('api/auth/logout', views.custom_logout),
 
+    path("auth/finalize/", views.finalize_login, name="finalize-login"),
+
+    path("admin/", admin.site.urls),
+    path('', include('cvat.apps.engine.urls')),
+    path('', include('cvat.apps.redis_handler.urls')),
+    path('django-rq/', include('django_rq.urls')),
+]
+urlpatterns += [
+    path('social-auth/login/keycloak/', auth, {'backend': 'keycloak'}, name='keycloak-login'),
+    path('social-auth/complete/keycloak/', complete, {'backend': 'keycloak'}, name='keycloak-complete'),
+]
+# urlpatterns += [
+#     path("social-auth/login/keycloak/", auth, name="keycloak-login"),
+# ]
 if apps.is_installed("cvat.apps.log_viewer"):
     urlpatterns.append(path("", include("cvat.apps.log_viewer.urls")))
 

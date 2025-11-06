@@ -619,7 +619,12 @@ class CVATApplication extends React.PureComponent<CVATAppProps & RouteComponentP
                             <Route exact path='/auth/email-confirmation' component={EmailConfirmationPage} />
                             { routesToRender }
                             <Redirect
-                                to={location.pathname.length > 1 ? `/auth/login?next=${location.pathname}` : '/auth/login'}
+                                // to={location.pathname.length > 1 ? `/auth/login?next=${location.pathname}` : '/auth/login'}
+                                    to={
+                                        location.pathname.length > 1 && !location.pathname.startsWith('/social-auth/')
+                                            ? `/auth/login?next=${location.pathname}`
+                                            : '/auth/login'
+                                    }
                             />
                         </Switch>
                         <InvitationWatcher />

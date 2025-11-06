@@ -14,6 +14,7 @@ from dj_rest_auth.utils import jwt_encode
 from dj_rest_auth.views import LoginView
 from django.conf import settings
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.shortcuts import redirect, render
 from django.views.decorators.http import etag as django_etag
 from drf_spectacular.contrib.rest_auth import get_token_serializer_class
 from drf_spectacular.types import OpenApiTypes
@@ -28,10 +29,17 @@ from rest_framework import serializers, views
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-
+from django.contrib.sessions.models import Session
+from social_django.models import UserSocialAuth
+from django.contrib.auth import logout
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from .authentication import Signer
 from .utils import get_opa_bundle
-
+from django.utils import timezone
+from django.contrib.auth import get_user_model, login
+from django.views.decorators.csrf import csrf_exempt
+import logging
+logger = logging.getLogger(__name__)
 
 @extend_schema(tags=["auth"])
 @extend_schema_view(
@@ -191,3 +199,102 @@ class ConfirmEmailViewEx(ConfirmEmailView):
             return self.post(*args, **kwargs)
         except Http404:
             return HttpResponseRedirect(settings.INCORRECT_EMAIL_CONFIRMATION_URL)
+
+def finalize_login(request: HttpRequest):
+    user = request.user
+    if user and user.is_authenticated:
+        if not hasattr(user, 'backend'):
+            # This is required when using multiple authentication backends
+            user.backend = 'social_core.backends.keycloak.KeycloakOAuth2'
+
+        login(request, user)  # Ensures session is saved and cookie is set
+        return redirect('/')
+    else:
+        return HttpResponseServerError("❌ Login failed. User not authenticated.")
+
+# @csrf_exempt  # because frontend may send POST
+# def logout_api_redirect(request):
+#     return HttpResponseRedirect('/auth/logout/')
+
+def oidc_logout_redirect(request):
+    id_token = request.GET.get("id_token")
+    redirect_uri = settings.LOGOUT_REDIRECT_URL or "http://localhost:8090/auth/login/"
+    logout_base = settings.SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL
+
+    if id_token:
+        logging.warning("⭐️ with id")
+        logout_url = f"{logout_base}?id_token_hint={id_token}&post_logout_redirect_uri={redirect_uri}"
+    else:
+        logging.warning("😔 no id")
+        logout_url = f"{logout_base}?post_logout_redirect_uri={redirect_uri}"
+
+    logger.warning(f"🌐 Final Logout URL: {logout_url}")
+
+    return redirect(redirect_uri)
+    # return HttpResponse(f"""
+    # <!DOCTYPE html>
+    # <html>
+    # <head>
+    #     <title>Logging Out</title>
+    #     <script>
+    #         // Open logout in a new tab and redirect back to CVAT login
+    #         console.log("1234")
+    #         window.onload = function () {{
+    #             const win = window.open("{logout_url}", "_blank");
+    #             console.log("3")
+    #             setTimeout(() => {{
+    #                 window.location.href = "{redirect_uri}";
+    #             }}, 1000);
+    #         }};
+    #     </script>
+    # </head>
+    # <body>
+    #     <p>Logging out from Keycloak... <a href="{logout_url}" target="_blank">Click here if not redirected</a>.</p>
+    # </body>
+    # </html>
+    # """)
+
+def custom_logout(request):
+    logger.warning("🔄 custom_logout triggered")
+    id_token = None
+
+    if request.user.is_authenticated:
+        try:
+            social = request.user.social_auth.get(provider='keycloak')
+            id_token = social.extra_data.get('id_token')
+            logger.warning(f"🔑 ID Token: {id_token}")
+        except Exception as e:
+            logger.warning("⚠️ No social_auth entry")
+
+    logout(request)
+    logger.warning("🧹 Django session cleared")
+
+    redirect_uri = settings.LOGOUT_REDIRECT_URL or "http://localhost:8090/auth/login/"
+    logout_base = settings.SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL
+
+    if id_token:
+        logger.warning("⭐️ with id")
+        logout_url = f"{logout_base}?id_token_hint={id_token}&post_logout_redirect_uri={redirect_uri}"
+    else:
+        logger.warning("😔 no id")
+        logout_url = f"{logout_base}?post_logout_redirect_uri={redirect_uri}"
+
+    logger.warning(f"🌐 Final Logout URL: {logout_url}")
+
+    return JsonResponse({"logout_url": logout_url})
+
+    # return HttpResponse("CUSTOM LOGOUT VIEW WAS CALLED")
+
+    # return HttpResponse(f"""
+    # <html>
+    # <head>
+    #     <title>Logging Out...</title>
+    #     <meta http-equiv="refresh" content="0; url={ logout_url }">
+    # </head>
+    # <body>
+    #     <p>Logging out... <a href="{ logout_url }">Click here if not redirected.</a></p>
+    # </body>
+    # </html>
+    # """)
+
+    # return render(request, html, {"logout_url": logout_url})

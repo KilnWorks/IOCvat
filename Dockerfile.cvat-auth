@@ -1,0 +1,11 @@
+FROM cvat/server:dev
+
+USER root
+
+# Install pip (in case it's missing) and use the venv pip explicitly
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python3 get-pip.py && \
+    /opt/venv/bin/pip install django-extensions social-auth-app-django social-auth-core djangorestframework-simplejwt && \
+    rm get-pip.py
+
+USER django

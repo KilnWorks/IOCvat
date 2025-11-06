@@ -45,7 +45,7 @@ function ResetPasswordFormComponent({ fetching, onSubmit }: Props): JSX.Element 
             </Row>
             <Row>
                 <Col>
-                    <Title level={2}> Forgot password? </Title>
+                    <Title level={2}> Forgot password? asdfasdfasdffdsafsdaasdfafsafdsfasafsd</Title>
                 </Col>
             </Row>
             <Row>

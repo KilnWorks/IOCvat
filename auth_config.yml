@@ -1,0 +1,22 @@
+# social_account:
+#   enabled: true
+#   keycloak:
+#     display_name: "Login with Keycloak"
+#     provider: "keycloak"
+#     SCOPE: openid profile email
+#     client_id: cvat-client
+#     client_secret: "jlNytEaioBOkqBwI6Sh3kQ6UD1iqfCcX"
+#     domain: http://host.docker.internal:8080/realms/demo_app
+    # authorization_url: "http://host.docker.internal:8080/realms/demo_app/protocol/openid-connect/auth"
+
+sso:
+  enabled: true
+  selection_mode: email_address
+  identity_providers:
+    - id: oidc-idp
+      protocol: OIDC
+      name: Keycloak OIDC-based Identity Provider
+      server_url: http://localhost:8080/realms/IO-Valence/.well-known/openid-configuration
+      client_id: cvat-app-client
+      client_secret: NWR3yIGdfyyZMidz0ZDPtzFo3WMfomSq
+      email_domain: iovalence.com
