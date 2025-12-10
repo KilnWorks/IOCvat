@@ -14,7 +14,7 @@ x-backend-env: &backend-env
   CVAT_LOG_IMPORT_ERRORS: 'true'
   CVAT_ALLOW_STATIC_CACHE: '${CVAT_ALLOW_STATIC_CACHE:-no}'
   DJANGO_LOG_SERVER_HOST: vector
-  DJANGO_LOG_SERVER_PORT: 8282
+  DJANGO_LOG_SERVER_PORT: 80
   no_proxy: clickhouse,grafana,vector,nuclio,opa,${no_proxy:-}
   SMOKESCREEN_OPTS: ${SMOKESCREEN_OPTS:-}
 
@@ -24,8 +24,6 @@ x-backend-deps: &backend-deps
   cvat_redis_ondisk:
     condition: service_started
   cvat_db:
-    condition: service_started
-  cvat_clickhouse:
     condition: service_started
 
 x-clickhouse-env: &clickhouse-env
@@ -51,7 +49,7 @@ services:
 
   cvat_redis_inmem:
     container_name: cvat_redis_inmem
-    image: redis:7.2.11-alpine
+    image: redis:7.2.3-alpine
     restart: always
     command: [
       "redis-server",
@@ -65,8 +63,11 @@ services:
 
   cvat_redis_ondisk:
     container_name: cvat_redis_ondisk
-    image: apache/kvrocks:2.12.1
+    image: apache/kvrocks:2.7.0
     restart: always
+    command: [
+      "--dir", "/var/lib/kvrocks/data"
+    ]
     # The kvrocks image a) has a healthcheck command, and b) has a root process
     # that doesn't reap children, so it's susceptible to the problem described here:
     # <https://stackoverflow.com/a/77109064>. Kvrocks also uses a tiny timeout for
@@ -74,16 +75,15 @@ services:
     # Use a separate init process as a workaround.
     init: true
     volumes:
-      - cvat_cache_db:/var/lib/kvrocks
+      - cvat_cache_db:/var/lib/kvrocks/data
     networks:
       - cvat
-    command: [
-      "--compact-cron", "0 3 * * *",
-      ]
 
   cvat_server:
     container_name: cvat_server
-    image: cvat/server:${CVAT_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: Dockerfile.cvat-auth
     restart: always
     depends_on:
       <<: *backend-deps
@@ -93,7 +93,52 @@ services:
     environment:
       <<: [*backend-env, *clickhouse-env]
       DJANGO_MODWSGI_EXTRA_ARGS: ''
-      ALLOWED_HOSTS: '*'
+      # AUTH_CONFIG_PATH: /home/django/auth_config.yml
+      VERIFYING_KEY_PATH: /home/django/cvat/utils/keycloak_public_key.pem
+      SOCIAL_AUTH_KEYCLOAK_KEY: cvat-app-client
+      SOCIAL_AUTH_KEYCLOAK_SECRET: NWR3y...
+      SOCIAL_AUTH_KEYCLOAK_REALM: IO-Valence
+      SOCIAL_AUTH_KEYCLOAK_KEY_URL: http://keycloak:8080/realms/IO-Valence
+      # realm → Keys → Certificate → RS256, public key
+      SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY: MIIBIjAN...
+      SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL: http://localhost:8080/realms/IO-Valence/protocol/openid-connect/auth
+      SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL: http://keycloak:8080/realms/IO-Valence/protocol/openid-connect/token
+      SOCIAL_AUTH_KEYCLOAK_USER_INFO_URL: http://keycloak:8080/realms/IO-Valence/protocol/openid-connect/userinfo
+      SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL: http://localhost:8080/realms/IO-Valence/protocol/openid-connect/logout
+      LOGOUT_REDIRECT_URL: http://localhost:8090/auth/login
+
+      # SOCIAL_AUTH_KEYCLOAK_SCOPE: "openid,profile,email"
+      # SOCIAL_AUTH_KEYCLOAK_EXTRA_DATA: "email,aud"
+
+      SOCIAL_AUTH_REDIRECT_IS_HTTPS: "false"
+      SOCIAL_AUTH_LOGIN_REDIRECT_URL: / # Where to go after login
+
+      LOGIN_REDIRECT_URL: / # Django fallback after login
+
+      SOCIAL_AUTH_LOGIN_ERROR_URL: /auth/login/ # Redirect on login error
+      SOCIAL_AUTH_RAISE_EXCEPTIONS: "true"
+      SOCIAL_AUTH_JSONFIELD_ENABLED: "true" # Required for saving extra data as JSON in DB
+      SOCIAL_AUTH_TRAILING_SLASH: "false"
+
+      SESSION_COOKIE_NAME: sessionid # Required: Django session cookie name
+      SESSION_COOKIE_SECURE: "false"
+      SESSION_COOKIE_HTTPONLY: "true"
+      SESSION_COOKIE_SAMESITE: Lax
+      SESSION_COOKIE_DOMAIN: localhost # Required if frontend and backend share localhost
+
+      CSRF_COOKIE_DOMAIN: localhost  # Required if frontend and backend share localhost
+
+      CSRF_COOKIE_SAMESITE: Lax
+      CSRF_COOKIE_SECURE: "false"
+
+      ALLOWED_HOSTS: localhost,127.0.0.1,cvat-server
+      CSRF_TRUSTED_ORIGINS: http://localhost:8090,http://localhost:5173,https://localhost:5173
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,https://localhost:5173
+      CORS_ALLOW_CREDENTIALS: true
+
+      SOCIAL_AUTH_LOG_LEVEL: DEBUG
+
+      # ALLOWED_HOSTS: '*'
       ADAPTIVE_AUTO_ANNOTATION: 'false'
       NUMPROCS: 2
       CVAT_ANALYTICS: 1
@@ -103,12 +148,17 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.services.cvat.loadbalancer.server.port: "8080"
-      traefik.http.routers.cvat.rule:
+      traefik.http.routers.cvat.rule: >
         Host(`${CVAT_HOST:-localhost}`) &&
         (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/admin`)
-          || PathPrefix(`/django-rq`))
+          || PathPrefix(`/django-rq`) || PathPrefix(`/social-auth/`))
+
       traefik.http.routers.cvat.entrypoints: web
     volumes:
+      - ./auth_config.yml:/home/django/auth_config.yml:ro
+      - ./auth.py:/home/django/cvat/auth.py
+
+      - ./cvat:/home/django/cvat
       - cvat_data:/home/django/data
       - cvat_keys:/home/django/keys
       - cvat_logs:/home/django/logs
@@ -254,19 +304,22 @@ services:
       - cvat_server
     labels:
       traefik.enable: "true"
-      traefik.http.services.cvat-ui.loadbalancer.server.port: "8000"
+      traefik.http.services.cvat-ui.loadbalancer.server.port: "80"
       traefik.http.routers.cvat-ui.rule: Host(`${CVAT_HOST:-localhost}`)
       traefik.http.routers.cvat-ui.entrypoints: web
     networks:
       - cvat
+    volumes:
+      # - ./cvat-ui:/app
+      - ./cvat/cvat-ui:/home/node/app:cached
 
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6.1
     container_name: traefik
     restart: always
     ports:
-      - 8080:8080
-      - 8090:8090
+      - "8090:8080"   # CVAT UI (mapped)
+      - "8091:8081"   # CVAT backend API
     environment:
       CVAT_HOST: ${CVAT_HOST:-localhost}
       DJANGO_LOG_VIEWER_HOST: grafana
@@ -331,7 +384,7 @@ services:
   cvat_clickhouse:
     container_name: cvat_clickhouse
     image: clickhouse/clickhouse-server:23.11-alpine
-    restart: "always"
+    restart: always
     environment:
       <<: *clickhouse-env
     networks:
@@ -339,12 +392,12 @@ services:
         aliases:
           - clickhouse
     volumes:
+      - ./components/analytics/clickhouse/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
       - cvat_events_db:/var/lib/clickhouse/
 
   cvat_vector:
     container_name: cvat_vector
     image: timberio/vector:0.26.0-alpine
-    user: "1000:1000" # Workaround for <https://github.com/vectordotdev/vector/issues/1599>.
     restart: always
     depends_on:
       - cvat_clickhouse
@@ -355,12 +408,7 @@ services:
         aliases:
           - vector
     volumes:
-      - type: bind
-        source: ./components/analytics/vector/vector.toml
-        target: /etc/vector/vector.toml
-        read_only: true
-      - type: tmpfs
-        target: /vector-data-dir
+      - ./components/analytics/vector/vector.toml:/etc/vector/vector.toml:ro
 
   cvat_grafana:
     image: grafana/grafana-oss:10.1.2
@@ -373,8 +421,9 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: true
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
       GF_AUTH_DISABLE_LOGIN_FORM: true
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-clickhouse-datasource
       GF_SERVER_ROOT_URL: http://${CVAT_HOST:-localhost}/analytics
-      GF_INSTALL_PLUGINS: 'grafana-clickhouse-datasource 4.8.2'
+      GF_INSTALL_PLUGINS: https://github.com/grafana/clickhouse-datasource/releases/download/v4.0.8/grafana-clickhouse-datasource-4.0.8.linux_amd64.zip;grafana-clickhouse-datasource
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/all_events.json
     volumes:
       - ./components/analytics/grafana/dashboards/:/var/lib/grafana/dashboards/:ro
@@ -428,3 +477,6 @@ volumes:
 
 networks:
   cvat:
+    driver: bridge
+    external: true
+    name: cvat

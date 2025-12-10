@@ -46,5 +46,10 @@
     "python.testing.cwd": "${workspaceFolder}/tests",
     "cSpell.words": [
         "crowdsourcing"
-    ]
+    ],
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#0E3426",
+        "titleBar.activeBackground": "#144935",
+        "titleBar.activeForeground": "#F5FCFA"
+    }
 }

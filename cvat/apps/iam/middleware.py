@@ -5,11 +5,13 @@
 from datetime import timedelta
 from typing import Any, Callable, Protocol
 
+from django.shortcuts import redirect
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.utils.functional import SimpleLazyObject
 from rest_framework.exceptions import NotFound, ValidationError
 
+__all__ = ['KeycloakRedirectMiddleware', 'ContextMiddleware', 'SessionRefreshMiddleware']
 
 class WithIAMContext(Protocol):
     iam_context: dict[str, Any]
@@ -55,6 +57,16 @@ def get_organization(request: HttpRequest):
 
     return context
 
+class KeycloakRedirectMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest):
+        print(f"[KeycloakRedirectMiddleware] Path: {request.path}")
+        if request.path == '/auth/login/':
+            print(f"[redirect] Path: {request.path}")
+            return redirect('/social-auth/login/keycloak/')
+        return self.get_response(request)
 
 class ContextMiddleware:
     def __init__(self, get_response):
@@ -127,3 +139,4 @@ class SessionRefreshMiddleware:
         request.session.modified = True
 
         return response
+assert KeycloakRedirectMiddleware

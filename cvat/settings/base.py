@@ -26,15 +26,19 @@ from enum import Enum, IntEnum
 from attr.converters import to_bool
 from corsheaders.defaults import default_headers
 from logstash_async.constants import constants as logstash_async_constants
-
+from jwt.algorithms import RSAAlgorithm
 from cvat import __version__
 
 mimetypes.add_type("application/wasm", ".wasm", True)
 
 from pathlib import Path
 
-from django.core.exceptions import ImproperlyConfigured
+import logging
 
+logger = logging.getLogger(__name__)
+
+from django.core.exceptions import ImproperlyConfigured
+from textwrap import dedent
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = str(Path(__file__).parents[2])
 
@@ -122,6 +126,115 @@ INSTALLED_APPS = [
     "cvat.apps.redis_handler",
     "cvat.apps.consensus",
 ]
+INSTALLED_APPS += [
+    'social_django',
+    'django_extensions',
+    'rest_framework_simplejwt']
+
+DEBUG = True
+
+SOCIAL_AUTH_KEYCLOAK_KEY = os.environ.get("SOCIAL_AUTH_KEYCLOAK_KEY")
+SOCIAL_AUTH_KEYCLOAK_SECRET = os.environ.get("SOCIAL_AUTH_KEYCLOAK_SECRET")
+# SOCIAL_AUTH_KEYCLOAK_ID_TOKEN_DECRYPTION_OPTIONS = {
+#     'verify_aud': True,
+#     'audience': 'cvat-client',
+# }
+SOCIAL_AUTH_KEYCLOAK_REALM = os.environ.get("SOCIAL_AUTH_KEYCLOAK_REALM")
+SOCIAL_AUTH_KEYCLOAK_KEY_URL = os.environ.get("SOCIAL_AUTH_KEYCLOAK_KEY_URL")
+SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY = os.environ.get("SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY", "").replace("\n", "")
+
+# SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY = (
+#     "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArEN2/KDAWn3F+r1LErXr"
+#     "m9y0iCSntquQ4Ak1I6j4AUUETGTK0EK7wJOuLm56hmtf8O5s2oHXNxgieVkVVZoX"
+#     "I+1OtEcdKhnypZq6GTMqBWFcHsoIOBOXCi6593KXuFQMind4GbACgj8YXFg/F19G"
+#     "0Rg1fGvWNz32edxKZKGx0hQBj0hOU9EdE+CyLw7vN+fF9/8aTfR+jR7RnNMSgB5h"
+#     "SqiPOZtZ7bRfL+wB+/EFuWgqkhuWd2zOZ9gbvIoIFXN8yMO0VLOL4p8VW5B35um1"
+#     "P8mwTizQ3cjB3gEWeN66zz01RZEc00s1mJgOd2a+EQsL9+gjgm7O04WoS/KioYu5"
+#     "4QIDAQAB"
+# )
+
+SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL = os.environ.get("SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL")
+SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL = os.environ.get("SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL")
+SOCIAL_AUTH_KEYCLOAK_USER_INFO_URL = os.environ.get("SOCIAL_AUTH_KEYCLOAK_USER_INFO_URL")
+SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL = os.environ.get("SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL")
+LOGOUT_REDIRECT_URL = os.environ.get("LOGOUT_REDIRECT_URL")
+SOCIAL_AUTH_KEYCLOAK_EXTRA_DATA = ['aud', 'id_token', 'refresh_token', 'expires_in', 'id_token_hint']
+SOCIAL_AUTH_KEYCLOAK_SCOPE = ['openid', 'profile', 'email']
+
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = to_bool(os.getenv("SOCIAL_AUTH_REDIRECT_IS_HTTPS", False))
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = os.environ.get("SOCIAL_AUTH_LOGIN_REDIRECT_URL")
+
+LOGIN_REDIRECT_URL = os.environ.get("LOGIN_REDIRECT_URL")
+
+SOCIAL_AUTH_LOGIN_ERROR_URL = os.environ.get("SOCIAL_AUTH_LOGIN_ERROR_URL")
+SOCIAL_AUTH_RAISE_EXCEPTIONS = to_bool(os.getenv("SOCIAL_AUTH_RAISE_EXCEPTIONS", False))
+SOCIAL_AUTH_JSONFIELD_ENABLED = to_bool(os.getenv("SOCIAL_AUTH_JSONFIELD_ENABLED", False))
+SOCIAL_AUTH_TRAILING_SLASH = to_bool(os.getenv("SOCIAL_AUTH_TRAILING_SLASH", False))
+
+SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME")
+SESSION_COOKIE_SECURE = to_bool(os.getenv("SESSION_COOKIE_SECURE", False))
+SESSION_COOKIE_HTTPONLY = to_bool(os.getenv("SESSION_COOKIE_HTTPONLY", False))
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE")
+SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN")
+
+CSRF_COOKIE_DOMAIN = os.environ.get("CSRF_COOKIE_DOMAIN")
+
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE")
+CSRF_COOKIE_SECURE = to_bool(os.getenv("CSRF_COOKIE_SECURE", False))
+CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+
+# SOCIAL_AUTH_LOGGER = 'social'
+# SOCIAL_AUTH_LOG_LEVEL = 'DEBUG'
+
+SOCIAL_AUTH_LOG_LEVEL = os.environ.get("SOCIAL_AUTH_LOG_LEVEL")
+
+## SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/auth/finalize'
+## LOGIN_REDIRECT_URL = '/auth/finalize'
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'cvat.apps.iam.pipeline.debug_pipeline_step',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'cvat.apps.iam.pipeline.save_id_token',  # <- ADD THIS LINE
+    'social_core.pipeline.user.user_details',
+    'cvat.apps.iam.pipeline.assign_backend_to_user',
+)
+# VERIFYING_KEY = """-----BEGIN PUBLIC KEY-----
+# MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArEN2/KDAWn3F+r1LErXr
+# m9y0iCSntquQ4Ak1I6j4AUUETGTK0EK7wJOuLm56hmtf8O5s2oHXNxgieVkVVZoX
+# I+1OtEcdKhnypZq6GTMqBWFcHsoIOBOXCi6593KXuFQMind4GbACgj8YXFg/F19G
+# 0Rg1fGvWNz32edxKZKGx0hQBj0hOU9EdE+CyLw7vN+fF9/8aTfR+jR7RnNMSgB5h
+# SqiPOZtZ7bRfL+wB+/EFuWgqkhuWd2zOZ9gbvIoIFXN8yMO0VLOL4p8VW5B35um1
+# P8mwTizQ3cjB3gEWeN66zz01RZEc00s1mJgOd2a+EQsL9+gjgm7O04WoS/KioYu5
+# 4QIDAQAB
+# -----END PUBLIC KEY-----"""
+
+VERIFYING_KEY_PATH = os.environ.get("VERIFYING_KEY_PATH")
+VERIFYING_KEY = ""
+
+if VERIFYING_KEY_PATH and os.path.exists(VERIFYING_KEY_PATH):
+    with open(VERIFYING_KEY_PATH, 'r') as f:
+        # Remove blank lines and join with newlines
+        lines = [line.strip() for line in f if line.strip()]
+        VERIFYING_KEY = "\n".join(lines)
+
+logger.warning("🔐 Loaded sanitized VERIFYING_KEY:")
+logger.warning(repr(VERIFYING_KEY))
+
+SIMPLE_JWT = {
+    "ALGORITHM": "RS256",
+    "VERIFYING_KEY": VERIFYING_KEY,
+    "SIGNING_KEY": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.UntypedToken",),
+}
 
 SITE_ID = 1
 
@@ -141,6 +254,9 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "cvat.apps.iam.authentication.BasicAuthenticationEx",
+        "rest_framework.authentication.BasicAuthentication",
+        'cvat.auth.KeycloakJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.AcceptHeaderVersioning",
     "ALLOWED_VERSIONS": ("2.0"),
@@ -183,15 +299,15 @@ if ANALYTICS_ENABLED:
     INSTALLED_APPS += ["cvat.apps.log_viewer"]
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.middleware.security.SecurityMiddleware",
     "cvat.apps.iam.middleware.SessionRefreshMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     # FIXME
     # 'corsheaders.middleware.CorsPostCsrfMiddleware',
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.gzip.GZipMiddleware",
     "cvat.apps.engine.middleware.RequestTrackingMiddleware",
     "cvat.apps.engine.middleware.LastActivityMiddleware",
@@ -201,6 +317,7 @@ MIDDLEWARE = [
     "dj_pagination.middleware.PaginationMiddleware",
     "cvat.apps.iam.middleware.ContextMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "social_django.middleware.SocialAuthExceptionMiddleware",
 ]
 
 UI_URL = ""
@@ -229,6 +346,11 @@ TEMPLATES = [
     },
 ]
 
+TEMPLATES[0]['OPTIONS']['context_processors'] += [
+    'social_django.context_processors.backends',
+    'social_django.context_processors.login_redirect',
+]
+
 # IAM settings
 IAM_TYPE = "BASIC"
 IAM_BASE_EXCEPTION = None  # a class which will be used by IAM to report errors
@@ -248,10 +370,11 @@ OBJECTS_NOT_RELATED_WITH_ORG = ["user", "lambda_function", "lambda_request", "se
 ORG_INVITATION_CONFIRM = "No"
 ORG_INVITATION_EXPIRY_DAYS = 7
 
+SOCIAL_AUTH_AUTHENTICATION_BACKENDS = ('social_core.backends.keycloak.KeycloakOAuth2',)
 
 AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend",
+    'social_core.backends.keycloak.KeycloakOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 # https://github.com/pennersr/django-allauth
@@ -551,6 +674,27 @@ LOGGING = {
             # set True for debug
             "propagate": False,
         },
+        'social': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'social_django': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        # Optional: log Django auth events
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 
@@ -589,6 +733,12 @@ CACHES = {
 }
 
 USE_CACHE = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # your React dev server
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     # tus upload protocol headers
