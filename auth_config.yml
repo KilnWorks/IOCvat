@@ -18,5 +18,5 @@ sso:
       name: Keycloak OIDC-based Identity Provider
       server_url: http://localhost:8080/realms/IO-Valence/.well-known/openid-configuration
       client_id: cvat-app-client
-      client_secret: NWR3yIGdfyyZMidz0ZDPtzFo3WMfomSq
+      client_secret: m2Jt21ZttQjdLJGU0RoWpJ1fyGMKyC5z
       email_domain: iovalence.com

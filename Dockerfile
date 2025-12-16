@@ -85,6 +85,13 @@ RUN --mount=type=cache,target=/root/.cache/pip/http-v2 \
     -r /tmp/cvat/requirements/${CVAT_CONFIGURATION}.txt \
     -w /tmp/wheelhouse
 
+# Build wheels for optional social auth packages so they are available offline
+# during final image installation and match the project's pinned Django.
+RUN --mount=type=cache,target=/root/.cache/pip/http-v2 \
+    python3 -m pip wheel --no-deps \
+    social-auth-app-django==5.4.0 social-auth-core==4.8.1 djangorestframework-simplejwt==5.5.1 \
+    -w /tmp/wheelhouse
+
 FROM golang:1.24.2 AS build-smokescreen
 
 RUN git clone --filter=blob:none --no-checkout https://github.com/stripe/smokescreen.git
@@ -173,7 +180,7 @@ ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m pip install -U pip==${PIP_VERSION}
 RUN --mount=type=bind,from=build-image,source=/tmp/wheelhouse,target=/mnt/wheelhouse \
     --mount=type=bind,from=build-image-av,source=/tmp/wheelhouse,target=/mnt/wheelhouse-av \
-    python -m pip install --no-index /mnt/wheelhouse/*.whl /mnt/wheelhouse-av/*.whl
+    python -m pip install --no-index --no-deps /mnt/wheelhouse/*.whl /mnt/wheelhouse-av/*.whl
 
 ENV NUMPROCS=1
 COPY --from=build-image-av /opt/ffmpeg/lib /usr/lib
@@ -184,6 +191,16 @@ ARG CVAT_DEBUG_ENABLED
 RUN if [ "${CVAT_DEBUG_ENABLED}" = 'yes' ]; then \
         python3 -m pip install --no-cache-dir debugpy; \
     fi
+# Install optional packages required for social auth (Keycloak/social_django).
+# Install without pulling their transitive dependencies so the pinned wheels
+# from the build stage (which contain the project's exact dependency versions)
+# remain in control and do not get upgraded (avoid accidentally upgrading Django).
+# Install optional packages required for social auth (Keycloak/social_django).
+# These are already added to the wheelhouse during the build stage above,
+# so they will be installed with "--no-index" from the wheelhouse earlier.
+# Install django-extensions (no deps) in final image; other optional packages
+# are provided via the wheelhouse to avoid dependency resolution issues.
+RUN python -m pip install --no-cache-dir --no-deps django-extensions
 
 # Removing pip due to security reasons. See: https://scout.docker.com/vulnerabilities/id/CVE-2018-20225
 # The vulnerability is dubious and we don't use pip at runtime, but some vulnerability scanners mark it as a high vulnerability,

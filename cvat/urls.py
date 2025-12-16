@@ -25,7 +25,6 @@ from cvat.apps.iam import views
 from django.shortcuts import redirect
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.contrib.auth.decorators import login_required
-from social_django.views import auth, complete
 
 urlpatterns = [
     path('auth/logout/', views.custom_logout, name='custom_logout'),
@@ -39,13 +38,6 @@ urlpatterns = [
     path('', include('cvat.apps.redis_handler.urls')),
     path('django-rq/', include('django_rq.urls')),
 ]
-urlpatterns += [
-    path('social-auth/login/keycloak/', auth, {'backend': 'keycloak'}, name='keycloak-login'),
-    path('social-auth/complete/keycloak/', complete, {'backend': 'keycloak'}, name='keycloak-complete'),
-]
-# urlpatterns += [
-#     path("social-auth/login/keycloak/", auth, name="keycloak-login"),
-# ]
 if apps.is_installed("cvat.apps.log_viewer"):
     urlpatterns.append(path("", include("cvat.apps.log_viewer.urls")))
 

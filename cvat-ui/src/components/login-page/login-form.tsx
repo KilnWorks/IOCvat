@@ -104,7 +104,7 @@ function LoginFormComponent(props: Props): JSX.Element {
                 }
             </Row>
             <Col>
-                <Title level={2}> Sign in </Title>
+                <Title level={2}> Sign in sdfsdf</Title>
             </Col>
             <Form
                 className={`cvat-login-form ${credential ? 'cvat-login-form-extended' : ''}`}
@@ -121,7 +121,7 @@ function LoginFormComponent(props: Props): JSX.Element {
                         >
                             <Input
                                 autoComplete='credential'
-                                prefix={<Text>Email or username</Text>}
+                                prefix={<Text>Email or usernames sdfsdffd</Text>}
                                 className={credential ? 'cvat-input-floating-label-above' : 'cvat-input-floating-label'}
                                 suffix={credential && (
                                     <Icon
@@ -154,7 +154,7 @@ function LoginFormComponent(props: Props): JSX.Element {
                                     <CVATSigningInput
                                         type={CVATInputType.PASSWORD}
                                         id='password'
-                                        placeholder='Password'
+                                        placeholder='Passwordss'
                                         autoComplete='password'
                                     />
                                 </Form.Item>
@@ -166,7 +166,7 @@ function LoginFormComponent(props: Props): JSX.Element {
                             type='primary'
                             block
                             onClick={() => {
-                                window.location.href = '/social-auth/login/keycloak/?next=/auth/finalize/';
+                                window.location.href = '/social-auth/login/keycloak?next=/auth/finalize/';
                             }}
                         >
                             Login with Keycloak
