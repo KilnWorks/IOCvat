@@ -178,6 +178,15 @@ class KeycloakJWTAuthentication(JWTAuthentication):
                 logger.error(f"Failed to create user: {e}")
                 raise AuthenticationFailed(f"User creation failed: {e}")
 
+        # All Keycloak-authed users get CVAT admin rights so projects and cloud
+        # storages are shared across all users. The post_save signal picks this
+        # up and adds the "admin" group, which OPA checks via privilege == "admin".
+        # TODO: replace with org-based roles once permissions are revisited.
+        if not (user.is_superuser and user.is_staff):
+            user.is_superuser = True
+            user.is_staff = True
+            user.save()
+
         if not user.is_active:
             raise AuthenticationFailed("User is inactive")
 

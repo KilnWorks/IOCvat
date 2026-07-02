@@ -11,6 +11,14 @@ def assign_backend_to_user(strategy, details, user=None, *args, **kwargs):
     if user:
         user.backend = 'social_core.backends.keycloak.KeycloakOAuth2'
 
+        # All Keycloak-authed users get CVAT admin rights so projects and cloud
+        # storages are shared across all users. post_save signal adds "admin" group.
+        # TODO: replace with org-based roles once permissions are revisited.
+        if not (user.is_superuser and user.is_staff):
+            user.is_superuser = True
+            user.is_staff = True
+            user.save()
+
 def save_id_token(backend, user, response, *args, **kwargs):
     if backend.name == 'keycloak':
         id_token = response.get('id_token')
