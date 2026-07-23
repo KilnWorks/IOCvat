@@ -21,8 +21,15 @@ RUN apt-get update && \
         libxmlsec1-dev \
         libxmlsec1-openssl \
         libhdf5-dev \
-        cargo \
     && rm -rf /var/lib/apt/lists/*
+
+# Ubuntu 22.04's apt `cargo` package (1.75.0) is too old for current crates
+# (e.g. getrandom now requires the edition2024 feature, stabilized in Rust
+# 1.85) — install a modern stable toolchain via rustup instead.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
 
 ARG PIP_VERSION
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -173,7 +180,9 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 # setuptools should be uninstalled after updating google-cloud-storage
 # https://github.com/googleapis/python-storage/issues/740
-RUN python -m pip install --upgrade setuptools
+# Pinned <81: setuptools 81+ removed pkg_resources entirely, which
+# google-cloud-storage (an indirect dependency) still imports at runtime.
+RUN python -m pip install --upgrade 'setuptools<81'
 ARG PIP_VERSION
 ARG PIP_DISABLE_PIP_VERSION_CHECK=1
 

@@ -6,13 +6,13 @@
 *.htm           text
 *.html          text
 *.js            text
-*.py            text
+*.py            text eol=lf
 *.css           text
 *.md            text
 *.yml           text
 Dockerfile      text
 LICENSE         text
-*.conf          text
+*.conf          text eol=lf
 *.mimetypes     text
 *.sh            text eol=lf
 
