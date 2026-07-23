@@ -98,22 +98,22 @@ services:
       # AUTH_CONFIG_PATH: /home/django/auth_config.yml
       VERIFYING_KEY_PATH: /home/django/cvat/utils/keycloak_public_key.pem
       SOCIAL_AUTH_KEYCLOAK_KEY: cvat-app-client
-      SOCIAL_AUTH_KEYCLOAK_SECRET: m2Jt21ZttQjdLJGU0RoWpJ1fyGMKyC5z
+      SOCIAL_AUTH_KEYCLOAK_SECRET: anOQq59MDimFfIhxdiPaHnNunwS5SqsW
       SOCIAL_AUTH_KEYCLOAK_REALM: IO-Valence
-      SOCIAL_AUTH_KEYCLOAK_KEY_URL: http://my_keycloak:8080/realms/IO-Valence
-      KEYCLOAK_JWKS_URI: http://my_keycloak:8080/realms/IO-Valence/protocol/openid-connect/certs
+      SOCIAL_AUTH_KEYCLOAK_KEY_URL: https://auth.iovalence.com/realms/IO-Valence
+      KEYCLOAK_JWKS_URI: https://auth.iovalence.com/realms/IO-Valence/protocol/openid-connect/certs
       # realm → Keys → Certificate → RS256, public key
-      SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsc6b08hGNSByse4/ZfVGFyAXqhhF0UP+bwyc5sw1eMgF5g1l0pnVsdNbHkOBTasnsARqdCF/rp97vxESml4D2Fz2QeO3pOB+X3ikGR4dm5EIgcLWtybfZamFD8MTGngsyuRR83s+fCUFD9n7DM8NTpTFz7808CoRtUZmQ8+5rylowJBg371dZuipd/FeCpZfnZ+XGsWmPfULhlNMswGktfpmjqopv6UM93r00axDitC6Vjkp0UpPtpINfrmtsOQ4NLkR2GoezOs2ezkPNwezl7e0itfB6Ny2wqiwx3lOT+oOzfUp7Qq+q5AFDVD67CnJGJeWW7l47FdLD90+PohgKQIDAQAB
-      SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL: http://localhost:8080/realms/IO-Valence/protocol/openid-connect/auth
-      SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL: http://my_keycloak:8080/realms/IO-Valence/protocol/openid-connect/token
-      SOCIAL_AUTH_KEYCLOAK_USER_INFO_URL: http://my_keycloak:8080/realms/IO-Valence/protocol/openid-connect/userinfo
-      SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL: http://localhost:8080/realms/IO-Valence/protocol/openid-connect/logout
-      LOGOUT_REDIRECT_URL: http://localhost:8090/auth/login
+      SOCIAL_AUTH_KEYCLOAK_PUBLIC_KEY: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcyA3fVRmB59kXgJ6R7y0HxdGRwXQi1WlY/R+I5woCiJoiBICmBBgi6DGudcyqcTWsc3IYIuvONY3321uE1EC/lDJEzsxElaxOmoDuCB/HssCCSSywK6wiSWcc/7iSntZWSE/BZiMyAFdkHPFG4E3GJ7RqqiDzs/ZmnSae/wVoRPABDKDejaWPrAcgaSJ1CaNUU2H6SN96pxqQxWa3vp9zOapuPrbpa/4JnGkX9h5POw5LmPM4wI4qb68mrhoTR/J+dhzVSXbKBPmzChbIvOVtmn64mRZ5nxGR308lpPdcvOtxdaevCl5mhMpsXyB44ecWnacxnquVBrYonpTHhHvQIDAQAB
+      SOCIAL_AUTH_KEYCLOAK_AUTHORIZATION_URL: https://auth.iovalence.com/realms/IO-Valence/protocol/openid-connect/auth
+      SOCIAL_AUTH_KEYCLOAK_ACCESS_TOKEN_URL: https://auth.iovalence.com/realms/IO-Valence/protocol/openid-connect/token
+      SOCIAL_AUTH_KEYCLOAK_USER_INFO_URL: https://auth.iovalence.com/realms/IO-Valence/protocol/openid-connect/userinfo
+      SOCIAL_AUTH_KEYCLOAK_LOGOUT_URL: https://auth.iovalence.com/realms/IO-Valence/protocol/openid-connect/logout
+      LOGOUT_REDIRECT_URL: http://iov.iovalence.com:8090/auth/login
 
       # SOCIAL_AUTH_KEYCLOAK_SCOPE: "openid,profile,email"
       # SOCIAL_AUTH_KEYCLOAK_EXTRA_DATA: "email,aud"
 
-      SOCIAL_AUTH_REDIRECT_IS_HTTPS: "false"
+      SOCIAL_AUTH_REDIRECT_IS_HTTPS: "true"
       SOCIAL_AUTH_LOGIN_REDIRECT_URL: / # Where to go after login
 
       LOGIN_REDIRECT_URL: / # Django fallback after login
@@ -127,21 +127,19 @@ services:
       SESSION_COOKIE_SECURE: "false"
       SESSION_COOKIE_HTTPONLY: "true"
       SESSION_COOKIE_SAMESITE: Lax
-      SESSION_COOKIE_DOMAIN: localhost # Required if frontend and backend share localhost
+      SESSION_COOKIE_DOMAIN: iovalence.com
 
-      CSRF_COOKIE_DOMAIN: localhost  # Required if frontend and backend share localhost
+      CSRF_COOKIE_DOMAIN: iovalence.com
 
       CSRF_COOKIE_SAMESITE: Lax
       CSRF_COOKIE_SECURE: "false"
 
-      ALLOWED_HOSTS: localhost,127.0.0.1,cvat-server
-      CSRF_TRUSTED_ORIGINS: http://localhost:8090,http://localhost:5173,https://localhost:5173
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,https://localhost:5173
+      ALLOWED_HOSTS: localhost,127.0.0.1,cvat-server,iov.iovalence.com
+      CSRF_TRUSTED_ORIGINS: https://iov.iovalence.com,http://localhost:8090,http://localhost:5173,https://localhost:5173
+      CORS_ALLOWED_ORIGINS: https://iov.iovalence.com,http://localhost:5173,https://localhost:5173
       CORS_ALLOW_CREDENTIALS: true
 
       SOCIAL_AUTH_LOG_LEVEL: DEBUG
-
-      # ALLOWED_HOSTS: '*'
       ADAPTIVE_AUTO_ANNOTATION: 'false'
       NUMPROCS: 2
       CVAT_ANALYTICS: 1
@@ -151,11 +149,9 @@ services:
     labels:
       traefik.enable: "true"
       traefik.http.services.cvat.loadbalancer.server.port: "8080"
-      traefik.http.routers.cvat.rule: >
-        Host(`${CVAT_HOST:-localhost}`) &&
-        (PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/admin`)
-          || PathPrefix(`/django-rq`) || PathPrefix(`/social-auth`))
+      traefik.http.routers.cvat.rule: "PathPrefix(`/api/`) || PathPrefix(`/static/`) || PathPrefix(`/admin`) || PathPrefix(`/django-rq`) || PathPrefix(`/social-auth`)"
       traefik.http.routers.cvat.entrypoints: web
+      traefik.http.routers.cvat.priority: "100"
     volumes:
       - cvat_data:/home/django/data
       - cvat_keys:/home/django/keys
@@ -321,11 +317,10 @@ services:
     restart: always
     depends_on:
       - cvat_server
+    ports:
+      - "3000:80"
     labels:
-      traefik.enable: "true"
-      traefik.http.services.cvat-ui.loadbalancer.server.port: "80"
-      traefik.http.routers.cvat-ui.rule: Host(`${CVAT_HOST:-localhost}`)
-      traefik.http.routers.cvat-ui.entrypoints: web
+      traefik.enable: "false"
     networks:
       - cvat
     volumes:
